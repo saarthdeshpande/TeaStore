@@ -154,66 +154,55 @@ CATEGORY_IDS = [0, 1, 2, 3, 4, 5]
 PRODUCT_IDS = list(range(1, 200))  # adjust to your dataset
 PAGES = [1, 2, 3]
 
+BASE_PATH = "/tools.descartes.teastore.webui"
+
 def index(l):
-    # Home page
-    l.client.get("/", name="index")
-
-
-# def browseCategory(l):
-#     category = random.choice(CATEGORY_IDS)
-#     page = random.choice(PAGES)
-#     l.client.get(
-#         f"/category?category={category}&page={page}",
-#         name="browseCategory"
-#     )
+    l.client.get(f"{BASE_PATH}/", name="index")
 
 def browseCategory(l):
     category = random.choice(CATEGORY_IDS)
     page = random.choice(PAGES)
-
     l.client.get(
-        f"/category?category={category}&page={page}",
-        name="browseCategory")
+        f"{BASE_PATH}/category?category={category}&page={page}",
+        name="browseCategory",
+    )
 
 def viewProduct(l):
     product_id = random.choice(PRODUCT_IDS)
-    l.client.get(
-        f"/product?id={product_id}",
-        name="viewProduct"
-    )
+    l.client.get(f"{BASE_PATH}/product?id={product_id}", name="viewProduct")
 
 def viewCart(l):
-    l.client.get("/cart", name="viewCart")
+    l.client.get(f"{BASE_PATH}/cart", name="viewCart")
 
 def addToCart(l):
     product_id = random.choice(PRODUCT_IDS)
     l.client.post(
-        f"/cartAction/productid={product_id}&addToCart=Add+to+Cart",
-        name="addToCart"
+        f"{BASE_PATH}/cartAction/productid={product_id}&addToCart=Add+to+Cart",
+        name="addToCart",
     )
 
 def checkout(l):
-    # We’ll label BOTH checkout POSTs as the same logical endpoint "checkout"
-    viewCart(l)  # this already uses name="viewCart"
-    l.client.post("/cartAction", {"proceedToCheckout": "Checkout"}, name="checkout")
-    l.client.post("/cartAction", {"confirmOrder": "Confirm"}, name="checkout")
+    viewCart(l)
+    l.client.post(f"{BASE_PATH}/cartAction",
+                  {"proceedToCheckout": "Checkout"},
+                  name="checkout")
+    l.client.post(f"{BASE_PATH}/cartAction",
+                  {"confirmOrder": "Confirm"},
+                  name="checkout")
 
 def login(l):
-    """
-    Optional: login flow if you want authenticated scenarios.
-    Implemented but not currently wired into the replay CSVs.
-    """
-    l.client.get("/login")
-    # If you have known credentials, replace these:
-    l.client.post("/loginAction", {
-        "username": "user",
-        "password": "password"
-    })
+    l.client.get(f"{BASE_PATH}/login", name="login")
+    l.client.post(
+        f"{BASE_PATH}/loginAction",
+        {
+            "username": "user",
+            "password": "password",
+        },
+        name="loginAction",
+    )
 
 def logout(l):
-    # Logout endpoint, as seen in Teastore usage. :contentReference[oaicite:6]{index=6}
-    l.client.post("/loginAction/logout")
-
+    l.client.post(f"{BASE_PATH}/loginAction/logout", name="logout")
 # ---------------------------------------------------------------------------
 # Poisson replay logic (unchanged from your Online Boutique script)
 # ---------------------------------------------------------------------------
@@ -323,6 +312,8 @@ def load_rps_files(dir_path):
         rows = []
         with open(path, newline="") as fh:
             reader = csv.DictReader(fh)
+            # for _ in range(1440):
+            #     next(reader, None)
             for row in reader:
                 rps = float(row["rps"]) * SCALE_FACTOR
                 rows.append(rps)

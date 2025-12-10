@@ -17,7 +17,7 @@ microservices = []
 hpa_config_file = "hpa_config.yaml"
 locustfile_path = "./locustfile.py"
 locust_venv = "./venv/bin" #~/CLionProjects/microservices-demo/src/loadgenerator/venv/bin"
-frontend_external_ip = "128.110.96.91:30080/tools.descartes.teastore.webui/"
+frontend_external_ip = "128.110.96.91:30080/"
 
 class LiteralDumper(yaml.SafeDumper):
     pass
@@ -37,7 +37,7 @@ yaml_width = 4096
 
 def create_hpa_yaml(args):
     global microservices
-    DEF_all = {"req": {"cpu": "500m", "memory": "512Mi"}, "lim": {"cpu": "1000m", "memory": "1Gi"}}
+    DEF_all = {"req": {"cpu": "1000m", "memory": "512Mi"}, "lim": {"cpu": "1000m", "memory": "1Gi"}}
     # Note: teastore-db is MySQL, similar to mongodb, often excluded from HPA or given special limits,
     # but we'll use DEF_all as a default and keep it simple.
     # DEF_db = {"req": {"cpu": "2000m", "memory": "512Mi"}, "lim": {"cpu": "2000m", "memory": "512Mi"}}
@@ -47,12 +47,12 @@ def create_hpa_yaml(args):
     if getattr(args, "cpu", False):
         metrics.append({
             "type": "Resource",
-            "resource": {"name": "cpu", "target": {"type": "Utilization", "averageUtilization": 80}}
+            "resource": {"name": "cpu", "target": {"type": "Utilization", "averageUtilization": 90}}
         })
     if getattr(args, "memory", False):
         metrics.append({
             "type": "Resource",
-            "resource": {"name": "memory", "target": {"type": "Utilization", "averageUtilization": 80}}
+            "resource": {"name": "memory", "target": {"type": "Utilization", "averageUtilization": 90}}
         })
 
     all_configs = []
