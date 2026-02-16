@@ -17,7 +17,7 @@ microservices = []
 hpa_config_file = "hpa_config.yaml"
 locustfile_path = "./locustfile.py"
 locust_venv = "./venv/bin" #~/CLionProjects/microservices-demo/src/loadgenerator/venv/bin"
-frontend_external_ip = "128.110.96.91:30080/"
+frontend_external_ip = "128.110.96.30:30080/"
 
 class LiteralDumper(yaml.SafeDumper):
     pass
@@ -37,7 +37,7 @@ yaml_width = 4096
 
 def create_hpa_yaml(args):
     global microservices
-    DEF_all = {"req": {"cpu": "1000m", "memory": "512Mi"}, "lim": {"cpu": "1000m", "memory": "1Gi"}}
+    DEF_all = {"req": {"cpu": "1000m", "memory": "2Gi"}, "lim": {"cpu": "2000m", "memory": "2Gi"}}
     # Note: teastore-db is MySQL, similar to mongodb, often excluded from HPA or given special limits,
     # but we'll use DEF_all as a default and keep it simple.
     # DEF_db = {"req": {"cpu": "2000m", "memory": "512Mi"}, "lim": {"cpu": "2000m", "memory": "512Mi"}}
@@ -184,8 +184,8 @@ if __name__ == "__main__":
     hpaApplyCmd = f"kubectl apply -f {hpa_config_file}"
     hpaApplyProcess = subprocess.Popen(hpaApplyCmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-    print("Applied app config. Sleeping for 120s while resources provisioned.")
-    time.sleep(120)
+    print("Applied app config. Sleeping for 240s while resources provisioned.")
+    time.sleep(240)
     print("Running locust workload.")
 
     print("Collecting HPA data.")

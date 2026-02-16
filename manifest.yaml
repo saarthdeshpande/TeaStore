@@ -346,17 +346,16 @@ spec:
             - name: REGISTRY_HOST
               value: "teastore-registry"
             - name: JAVA_TOOL_OPTIONS
-              value: "-Xms128m -Xmx256m -XX:MaxMetaspaceSize=128m"
+              value: "-Xms256m -Xmx1500m -XX:MaxMetaspaceSize=256m"
           livenessProbe:
             tcpSocket:
               port: 8080
-            initialDelaySeconds: 40
+            initialDelaySeconds: 180
             periodSeconds: 20
-
           readinessProbe:
             tcpSocket:
               port: 8080
-            initialDelaySeconds: 40
+            initialDelaySeconds: 180
             periodSeconds: 20
 ---
 apiVersion: v1

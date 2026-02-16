@@ -63,7 +63,7 @@ def send_dict_via_socket(dictionary, host='localhost', port=8001):
     """
     global start_time
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    if len(dictionary) == 42:  # magic number from your original script
+    if len(dictionary) == 18:  # magic number from your original script
         try:
             if start_time is None:
                 start_time = time.time()
@@ -312,8 +312,8 @@ def load_rps_files(dir_path):
         rows = []
         with open(path, newline="") as fh:
             reader = csv.DictReader(fh)
-            # for _ in range(1440):
-            #     next(reader, None)
+            for _ in range(1440):
+                next(reader, None)
             for row in reader:
                 rps = float(row["rps"]) * SCALE_FACTOR
                 rows.append(rps)
