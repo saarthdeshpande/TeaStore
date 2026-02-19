@@ -208,7 +208,7 @@ def get_k8s_metrics(microservice, DEF_all):
     cpu_util = int((cpu_avg / parse_quantity(DEF_all["req"]["cpu"])) * 100)
     mem_util = int((mem_avg / parse_quantity(DEF_all["req"]["memory"])) * 100)
 
-    return f"{microservice} {ref} cpu: {cpu_util}%/{cpu_target}% mem: {mem_util}%/{mem_target}% {min_pods} {max_pods} {replicas} {age}"
+    return f"{microservice} {ref} cpu: {cpu_util}%/{cpu_target}% memory: {mem_util}%/{mem_target}% {min_pods} {max_pods} {replicas} {age}"
 
 def record_hpa_numbers(microservice, metric, duration, DEF_all):
     start_time = time.time()
