@@ -4,6 +4,7 @@ import subprocess
 import threading
 import time
 import shlex
+import os
 
 from utils import interval_string_to_seconds
 
@@ -137,28 +138,104 @@ def create_hpa_yaml(args):
     with open(hpa_config_file, "w") as f:
         yaml.dump_all(all_configs, f, default_flow_style=False, Dumper=LiteralDumper, width=yaml_width)
 
-def record_hpa_numbers(microservice, metric, duration):
-    cmd = f"kubectl get hpa {microservice}"
-    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    return DEF_all
+
+def parse_quantity(quantity):
+    """
+    Parse kubernetes resource quantity to raw value.
+    m -> milli (values / 1000)
+    Ki -> 1024
+    Mi -> 1024^2
+    Gi -> 1024^3
+    """
+    if not quantity:
+        return 0
+    
+    # Handle millicores
+    if quantity.endswith('m'):
+        return int(quantity[:-1])
+    
+    # Handle limits (bytes)
+    multipliers = {
+        'Ki': 1024,
+        'Mi': 1024 ** 2,
+        'Gi': 1024 ** 3,
+        'Ti': 1024 ** 4
+    }
+    
+    for suffix, multiplier in multipliers.items():
+        if quantity.endswith(suffix):
+            return int(quantity[:-len(suffix)]) * multiplier
+            
+    # Plain integer
+    return int(quantity)
+
+import re
+
+def get_k8s_metrics(microservice, DEF_all):
+    # 1. Get HPA metadata from text output (single call for age, ref, replicas, thresholds)
+    hpa_cmd = f"kubectl get hpa {microservice} --no-headers"
+    hpa_res = subprocess.run(hpa_cmd, shell=True, capture_output=True, text=True)
+
+    ref, min_pods, max_pods, replicas, age = f"Deployment/{microservice}", -1, -1, 0, "<none>"
+    cpu_target, mem_target = -1, -1
+
+    if hpa_res.returncode == 0 and hpa_res.stdout.strip():
+        parts = hpa_res.stdout.strip().split()
+        # NAME REFERENCE TARGETS... MINPODS MAXPODS REPLICAS AGE
+        ref, min_pods, max_pods, replicas, age = parts[1], parts[-4], parts[-3], parts[-2], parts[-1]
+        # Extract thresholds from targets column(s) — e.g. "10%/90%,20%/80%" or "10%/90% 20%/80%"
+        targets_str = " ".join(parts[2:-4])
+        thresholds = re.findall(r'/(\d+)%', targets_str)
+        cpu_target = thresholds[0] if len(thresholds) >= 1 else -1
+        mem_target = thresholds[1] if len(thresholds) >= 2 else -1
+
+    # 2. Get actual usage via kubectl top
+    top_cmd = f"kubectl top pods -l run={microservice} --no-headers"
+    top_res = subprocess.run(top_cmd, shell=True, capture_output=True, text=True)
+
+    cpu_sum, mem_sum, pod_count = 0, 0, 0
+    if top_res.returncode == 0 and top_res.stdout.strip():
+        for pod_line in top_res.stdout.strip().split("\n"):
+            p_parts = pod_line.split()
+            if len(p_parts) >= 3:
+                cpu_sum += parse_quantity(p_parts[1])
+                mem_sum += parse_quantity(p_parts[2])
+                pod_count += 1
+
+    cpu_avg = (cpu_sum / pod_count) if pod_count > 0 else 0
+    mem_avg = (mem_sum / pod_count) if pod_count > 0 else 0
+    cpu_util = int((cpu_avg / parse_quantity(DEF_all["req"]["cpu"])) * 100)
+    mem_util = int((mem_avg / parse_quantity(DEF_all["req"]["memory"])) * 100)
+
+    return f"{microservice} {ref} cpu: {cpu_util}%/{cpu_target}% mem: {mem_util}%/{mem_target}% {min_pods} {max_pods} {replicas} {age}"
+
+def record_hpa_numbers(microservice, metric, duration, DEF_all):
     start_time = time.time()
     duration_in_seconds = interval_string_to_seconds(duration)
 
     try:
         with open(f"{metric}/{microservice}.txt", "w") as hpa_output_file:
+            # Write labels exactly like HPA output
+            hpa_output_file.write("NAME REFERENCE TARGETS MINPODS MAXPODS REPLICAS AGE\n")
             while time.time() - start_time < duration_in_seconds:
-                output = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                if output.stdout:
-                    hpa_output_file.write(output.stdout.strip().split("\n")[1])
+                # Use our new function instead of direct subprocess call
+                line = get_k8s_metrics(microservice, DEF_all)
+                
+                if line:
+                    hpa_output_file.write(line)
                     hpa_output_file.write("\n")
-                    hpa_output_file.flush()  # Flush after each write
+                    hpa_output_file.flush()
+                     
                 time.sleep(15)
-                # if process.poll() is not None:
-                #     break
+
+        if os.path.exists(output_filename) and os.stat(output_filename).st_size == 0:
+            os.remove(output_filename)
+            logging.info(f"Removed empty file for {microservice}")
+
         logging.info(f"Completed HPA monitoring for {microservice}")
     except Exception as e:
         logging.error(f"Error monitoring HPA for {microservice}: {str(e)}")
-    finally:
-        process.terminate()
 
 
 if __name__ == "__main__":
@@ -169,13 +246,10 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--time", default="10m")
 
     args = parser.parse_args()
-    create_hpa_yaml(args)
-    # exit(-1)
-    metric = ""
-    if args.cpu is True:
-        metric += "cpu_"
-    if args.memory is True:
-        metric += "memory_"
+    DEF_all = create_hpa_yaml(args)
+    
+    # Always force metric to cpu_memory_ for uniform collection
+    metric = "cpu_memory_"
 
     if not metric:
         logging.warning(f"No metrics specified in args.")
@@ -184,15 +258,19 @@ if __name__ == "__main__":
     hpaApplyCmd = f"kubectl apply -f {hpa_config_file}"
     hpaApplyProcess = subprocess.Popen(hpaApplyCmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-    print("Applied app config. Sleeping for 240s while resources provisioned.")
-    time.sleep(240)
+    print("Applied app config. Sleeping for 120s while resources provisioned.")
+    time.sleep(120)
     print("Running locust workload.")
 
     print("Collecting HPA data.")
+    
+    # Ensure directory exists
+    if not os.path.exists(metric):
+        os.makedirs(metric)
 
     threads = []
     for hpa in microservices:
-        thread = threading.Thread(target=record_hpa_numbers, args=(hpa, metric, args.time))
+        thread = threading.Thread(target=record_hpa_numbers, args=(hpa, metric, args.time, DEF_all))
         # thread.start()
         threads.append(thread)
 
