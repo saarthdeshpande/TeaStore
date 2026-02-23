@@ -18,7 +18,7 @@ microservices = []
 hpa_config_file = "hpa_config.yaml"
 locustfile_path = "./locustfile.py"
 locust_venv = "./venv/bin" #~/CLionProjects/microservices-demo/src/loadgenerator/venv/bin"
-frontend_external_ip = "128.110.96.30:30080/"
+frontend_external_ip = "128.110.96.70:30080/"
 
 class LiteralDumper(yaml.SafeDumper):
     pass
@@ -258,8 +258,8 @@ if __name__ == "__main__":
     hpaApplyCmd = f"kubectl apply -f {hpa_config_file}"
     hpaApplyProcess = subprocess.Popen(hpaApplyCmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-    print("Applied app config. Sleeping for 120s while resources provisioned.")
-    time.sleep(120)
+    print("Applied app config. Sleeping for 240s while resources provisioned.")
+    time.sleep(240)
     print("Running locust workload.")
 
     print("Collecting HPA data.")
