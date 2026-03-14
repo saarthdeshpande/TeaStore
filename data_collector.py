@@ -19,7 +19,7 @@ microservices = []
 hpa_config_file = "hpa_config.yaml"
 locustfile_path = "./locustfile.py"
 locust_venv = "./venv/bin" #~/CLionProjects/microservices-demo/src/loadgenerator/venv/bin"
-frontend_external_ip = "128.110.96.70:30080/"
+frontend_external_ip = "128.110.96.164:30080/"
 
 class LiteralDumper(yaml.SafeDumper):
     pass
@@ -190,6 +190,15 @@ def get_k8s_metrics(microservice, DEF_all):
         thresholds = re.findall(r'/(\d+)%', targets_str)
         cpu_target = thresholds[0] if len(thresholds) >= 1 else -1
         mem_target = thresholds[1] if len(thresholds) >= 2 else -1
+    else:
+        # No HPA (e.g. COLA is managing replicas) — read from deployment spec                                                                                                                           
+        dep_res = subprocess.run(
+           f"kubectl get deployment {microservice} -o jsonpath='{{.spec.replicas}}'",
+           shell=True, capture_output=True, text=True
+        )
+        if dep_res.returncode == 0 and dep_res.stdout.strip():
+            replicas = dep_res.stdout.strip()
+
 
     # 2. Get actual usage via kubectl top
     top_cmd = f"kubectl top pods -l run={microservice} --no-headers"
@@ -224,6 +233,11 @@ def record_hpa_numbers(microservice, metric, duration, DEF_all):
                 line = get_k8s_metrics(microservice, DEF_all)
                 
                 if line:
+                    if line.endswith("<none>"):
+                        elapsed = int(time.time() - start_time)
+                        m, s = divmod(elapsed, 60)
+                        computed_age = f"{m}m{s}s" if m else f"{s}s"
+                        line = line[:-len("<none>")] + computed_age
                     hpa_output_file.write(line)
                     hpa_output_file.write("\n")
                     hpa_output_file.flush()
@@ -276,7 +290,7 @@ if __name__ == "__main__":
         threads.append(thread)
 
     locustProcess = None
-    flags = f"--headless -u 100 -r 1 -t {args.time} -d {metric}"
+    flags = f"--autostart -u 100 -r 1 -t {args.time} -d {metric}"
     if args.realtime is True:
         flags += " --realtime"
     try:
