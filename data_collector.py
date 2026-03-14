@@ -83,6 +83,9 @@ def create_hpa_yaml(args):
                     lm["cpu"] = DEF["lim"]["cpu"]
                     lm["memory"] = DEF["lim"]["memory"]
 
+            name = (d.get("metadata") or {}).get("name")
+            if name:
+                microservices.append(name)
     # Add an HPA for Deployments when metrics requested
     if metrics:
         new_docs = []
@@ -97,7 +100,6 @@ def create_hpa_yaml(args):
                 #     continue
 
                 if name:
-                    microservices.append(name)
                     pMin, pMax = 1, 20
                     new_docs.append({  # Append to new_docs to avoid modifying docs while iterating
                         "apiVersion": "autoscaling/v2",
@@ -223,9 +225,10 @@ def get_k8s_metrics(microservice, DEF_all):
 def record_hpa_numbers(microservice, metric, duration, DEF_all):
     start_time = time.time()
     duration_in_seconds = interval_string_to_seconds(duration)
+    output_filename = f"{metric}/{microservice}.txt"
 
     try:
-        with open(f"{metric}/{microservice}.txt", "w") as hpa_output_file:
+        with open(output_filename, "w") as hpa_output_file:
             # Write labels exactly like HPA output
             hpa_output_file.write("NAME REFERENCE TARGETS MINPODS MAXPODS REPLICAS AGE\n")
             while time.time() - start_time < duration_in_seconds:
