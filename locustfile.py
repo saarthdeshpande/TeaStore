@@ -56,7 +56,7 @@ def _(environment, **kwargs):
 send_every = 0  # seconds (0 = send every time threshold is hit)
 start_time = None
 
-def send_dict_via_socket(dictionary, host='localhost', port=8001):
+def send_dict_via_socket(dictionary, host='localhost', port=8003):
     """
     Send current per-endpoint RPS/p95/p99 as JSON over TCP.
     Kept identical to your original code.
@@ -312,8 +312,8 @@ def load_rps_files(dir_path):
         rows = []
         with open(path, newline="") as fh:
             reader = csv.DictReader(fh)
-            for _ in range(1440):
-                next(reader, None)
+            #for _ in range(1440):
+            #    next(reader, None)
             for row in reader:
                 rps = float(row["rps"]) * SCALE_FACTOR
                 rows.append(rps)
